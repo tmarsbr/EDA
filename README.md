@@ -55,8 +55,6 @@ jupyter notebook ed.py
 
 ## 🤝 Contribuições
 Contribuições são bem-vindas! Sinta-se à vontade para:
-- Reportar bugs
-- Sugerir novas funcionalidades
 - Melhorar a documentação
 - Enviar pull requests
 
@@ -65,8 +63,8 @@ Este projeto está sob a licença MIT.
 
 ## 👤 Autor
 [Tiago silva]
-- LinkedIn: []
-- GitHub: []
+- LinkedIn: [www.linkedin.com/in/tiagocientistadados]
+- GitHub: [https://github.com/tmarsbr]
 - Email: [tiagomars233@gmail.com]
 
 ## 🙏 Agradecimentos

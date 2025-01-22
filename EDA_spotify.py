@@ -119,7 +119,7 @@ df = limpar_dados(df)
 
 # Verificar resultado
 metadados_df = metadados(df)
-metadados_df.head(5)
+metadados_df.head(4)
 
 # %% [markdown]
 # ## 7. Próximos Passos

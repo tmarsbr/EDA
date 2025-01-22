@@ -32,7 +32,7 @@ Este projeto realiza uma análise exploratória detalhada das músicas mais toca
 
 ## 📁 Estrutura do Projeto
 ```
-├── EDA_spotify.ipynb.py               # Código principal com análise exploratória
+├── EDA_spotify.ipynb               # Código principal com análise exploratória
 ├── README.md          # Este arquivo
 └── data/
     └── Spotify Most Streamed Songs.csv  # Dataset

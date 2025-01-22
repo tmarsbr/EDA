@@ -1,24 +1,38 @@
 # Análise Exploratória de Dados - Spotify Most Streamed Songs
 
 ## 📊 Sobre o Projeto
-Este projeto realiza uma análise exploratória detalhada das músicas mais tocadas no Spotify, utilizando técnicas de Data Science e ferramentas de visualização de dados em Python.
+Este projeto realiza uma análise exploratória detalhada das músicas mais tocadas no Spotify, utilizando técnicas de Data Science e ferramentas de visualização de dados em Python. O estudo visa compreender os fatores que contribuem para o sucesso das músicas na plataforma.
 
 ## 🎯 Objetivos
 - Analisar padrões nas músicas mais populares do Spotify
 - Identificar características que contribuem para o sucesso de uma música
 - Explorar correlações entre diferentes métricas musicais
 - Visualizar tendências e distribuições dos dados
+- Gerar insights acionáveis para artistas e produtores
 
-## 🛠️ Ferramentas Utilizadas
+## 🔍 Principais Descobertas
+- Características musicais ideais para streams
+- Padrões de colaboração mais bem-sucedidos
+- Impacto da presença em playlists
+- Tendências de distribuição entre plataformas
+
+## 📈 Visualizações
+- Gráficos de distribuição de streams
+- Análise de correlação entre métricas
+- Boxplots de características musicais
+- Heatmaps de relações entre variáveis
+
+## 🛠️ Tecnologias Utilizadas
 - Python 3.x
-- Pandas para manipulação de dados
-- Numpy para computação numérica
-- Matplotlib e Seaborn para visualizações
-- Jupyter Notebook para análise interativa
+- Pandas 1.x
+- NumPy 1.x
+- Matplotlib 3.x
+- Seaborn 0.11+
+- Jupyter Notebook
 
 ## 📁 Estrutura do Projeto
 ```
-├── ed.py               # Código principal com análise exploratória
+├── EDA_spotify.ipynb.py               # Código principal com análise exploratória
 ├── README.md          # Este arquivo
 └── data/
     └── Spotify Most Streamed Songs.csv  # Dataset
@@ -57,9 +71,6 @@ jupyter notebook ed.py
 Contribuições são bem-vindas! Sinta-se à vontade para:
 - Melhorar a documentação
 - Enviar pull requests
-
-## 📝 Licença
-Este projeto está sob a licença MIT.
 
 ## 👤 Autor
 [Tiago silva]

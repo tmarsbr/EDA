@@ -22,6 +22,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
+from IPython.display import display
 
 # %% [markdown]
 # ## 2. Carregamento dos Dados
@@ -149,32 +150,57 @@ def limpar_dados(df):
     """
     Função única para limpeza e correção de tipos dos dados
     """
-    # Criar cópia para não modificar dados originais
     df = df.copy()
     
+    print("🎵 Iniciando a mixagem dos dados...")
+    
     # 1. Remover colunas desnecessárias
+    print("\n🎚️ Removendo ruídos (colunas desnecessárias)...")
     df = df.drop(columns=['cover_url'])
     
-    # 2. Converter e limpar tipos numéricos
-    # Converter streams para float
+    # 2. Tratamento de Streams (outliers e formato)
+    print("\n🎛️ Ajustando os níveis de streams...")
     df['streams'] = pd.to_numeric(df['streams'].str.replace(',', ''), errors='coerce')
     
-    # Converter e tratar in_deezer_playlists
-    df['playlists_deezer'] = pd.to_numeric(df['playlists_deezer'], errors='coerce')
-    df['playlists_deezer'] = df['playlists_deezer'].fillna(df['playlists_deezer'].median())
+    # Identificar e tratar outliers em streams usando IQR
+    Q1 = df['streams'].quantile(0.25)
+    Q3 = df['streams'].quantile(0.75)
+    IQR = Q3 - Q1
+    limite_inferior = Q1 - 1.5 * IQR
+    limite_superior = Q3 + 1.5 * IQR
     
-    # Converter in_shazam_charts
-    df['charts_shazam'] = pd.to_numeric(df['charts_shazam'], errors='coerce')
-    df['charts_shazam'] = df['charts_shazam'].fillna(df['charts_shazam'].median())
+    # Criar coluna para identificar outliers
+    df['is_outlier_streams'] = (df['streams'] < limite_inferior) | (df['streams'] > limite_superior)
+    print(f"📊 Identificados {df['is_outlier_streams'].sum()} outliers em streams")
     
-    # 3. Converter colunas de porcentagem para float
-    colunas_porcentagem = [col for col in df.columns if '%' in col]
-    for col in colunas_porcentagem:
-        df[col] = df[col].astype(float)
+    # 3. Tratamento de métricas musicais
+    metricas_musicais = ['danceability', 'energy', 'valence', 'acousticness', 
+                         'instrumentalness', 'liveness', 'speechiness']
     
-    # 4. Tratar valores categóricos
+    print("\n🎼 Normalizando características musicais...")
+    for metrica in metricas_musicais:
+        # Converter para float
+        df[metrica] = df[metrica].astype(float)
+        
+        # Identificar e marcar outliers
+        Q1 = df[metrica].quantile(0.25)
+        Q3 = df[metrica].quantile(0.75)
+        IQR = Q3 - Q1
+        df[f'is_outlier_{metrica}'] = (df[metrica] < (Q1 - 1.5 * IQR)) | (df[metrica] > (Q3 + 1.5 * IQR))
+        print(f"📊 {metrica}: {df[f'is_outlier_{metrica}'].sum()} outliers identificados")
+    
+    # 4. Tratamento de playlists
+    print("\n🎯 Ajustando métricas de playlists...")
+    playlist_cols = ['playlists_spotify', 'playlists_apple', 'playlists_deezer']
+    for col in playlist_cols:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        df[col] = df[col].fillna(df[col].median())
+    
+    # 5. Tratamento final
+    print("\n🎹 Finalizando os ajustes...")
     df['tom_musical'] = df['tom_musical'].fillna(df['tom_musical'].mode()[0])
     
+    print("\n✨ Mixagem concluída! Dados prontos para análise.")
     return df
 
 # %% [markdown]
@@ -187,7 +213,7 @@ df = limpar_dados(df)
 
 # Verificar resultado
 metadados_df = metadados(df)
-metadados_df.head(4)
+metadados_df.head()
 
 # %% [markdown]
 # ## 7. Desvendando os Dados: Uma Jornada pelos Hits
@@ -271,15 +297,25 @@ def plot_univariada_categorica(df, coluna, limite_categorias=10):
     # Criar subplots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
     
-    # Gráfico de barras
-    sns.barplot(x=contagem.values, y=contagem.index, ax=ax1, 
-                palette='viridis', alpha=0.8)
+    # Gráfico de barras atualizado
+    data_plot = pd.DataFrame({
+        'Categoria': contagem.index,
+        'Contagem': contagem.values
+    })
+    sns.barplot(data=data_plot,
+                x='Contagem',
+                y='Categoria',
+                ax=ax1,
+                color='skyblue',
+                alpha=0.8)
     ax1.set_title(f'Distribuição de {coluna}')
     ax1.set_xlabel('Contagem')
     
     # Gráfico de pizza
-    wedges, texts, autotexts = ax2.pie(contagem.values, labels=contagem.index,
-                                      autopct='%1.1f%%', colors=sns.color_palette('viridis', n_colors=len(contagem)))
+    wedges, texts, autotexts = ax2.pie(contagem.values, 
+                                      labels=contagem.index,
+                                      autopct='%1.1f%%', 
+                                      colors=sns.color_palette('viridis', n_colors=len(contagem)))
     ax2.set_title(f'Proporção de {coluna}')
     
     plt.tight_layout()
@@ -291,62 +327,97 @@ for var in variaveis_categoricas:
     plot_univariada_categorica(df, var)
 
 # %% [markdown]
-# ### 7.4 Análise Bivariada - Categóricas vs Numéricas
+# ### 7.4 Relação entre Características Categóricas e Numéricas
+# Explorando como diferentes categorias influenciam métricas de sucesso
 
-# %% 
+# %%
 def plot_bivariada_cat_num(df, cat_col, num_col):
     """
-    Análise bivariada entre variável categórica e numérica
+    Análise bivariada entre variável categórica e numérica com visualizações simplificadas e claras
     """
-    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(20, 6))
+    # Configurar o estilo
+    sns.set_style("whitegrid")
     
-    # Boxplot atualizado
+    # Criar figura
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+    
+    # 1. Boxplot aprimorado
     sns.boxplot(data=df, 
                 x=cat_col, 
-                y=num_col, 
+                y=num_col,
                 ax=ax1,
                 hue=cat_col,
                 legend=False)
-    ax1.set_title(f'Boxplot: {cat_col} vs {num_col}')
+    
+    # Personalização do boxplot
+    ax1.set_title(f'Distribuição de {num_col} por {cat_col}', pad=20, fontsize=14)
+    ax1.set_xlabel(cat_col, fontsize=12)
+    ax1.set_ylabel(num_col, fontsize=12)
     ax1.tick_params(axis='x', rotation=45)
     
-    # Gráfico de barras com erro padrão atualizado
-    sns.barplot(data=df, 
-                x=cat_col, 
-                y=num_col, 
+    # Adicionar pontos de média
+    means = df.groupby(cat_col)[num_col].mean()
+    ax1.scatter(range(len(means)), means, color='red', s=100, marker='D', label='Média')
+    ax1.legend()
+    
+    # 2. Gráfico de barras com médias
+    sns.barplot(data=df,
+                x=cat_col,
+                y=num_col,
                 ax=ax2,
                 hue=cat_col,
                 legend=False,
-                errorbar='sd')
-    ax2.set_title(f'Média e Desvio Padrão: {cat_col} vs {num_col}')
+                errorbar=('ci', 95),
+                capsize=0.05)
+    
+    # Personalização do gráfico de barras
+    ax2.set_title(f'Média de {num_col} por {cat_col}', pad=20, fontsize=14)
+    ax2.set_xlabel(cat_col, fontsize=12)
+    ax2.set_ylabel(f'Média de {num_col}', fontsize=12)
     ax2.tick_params(axis='x', rotation=45)
     
-    # Gráfico de barras com valores médios atualizado
-    medias = df.groupby(cat_col)[num_col].mean().sort_values(ascending=False)
-    sns.barplot(x=medias.values, 
-                y=medias.index, 
-                ax=ax3,
-                hue=medias.index,
-                legend=False)
-    ax3.set_title(f'Média de {num_col} por {cat_col}')
+    # Adicionar valores nas barras
+    for i, v in enumerate(df.groupby(cat_col)[num_col].mean()):
+        ax2.text(i, v, f'{v:,.0f}', ha='center', va='bottom')
     
     plt.tight_layout()
     plt.show()
+    
+    # Exibir estatísticas resumidas
+    print(f"\nEstatísticas de {num_col} por {cat_col}:")
+    stats = df.groupby(cat_col)[num_col].agg(['count', 'mean', 'std', 'min', 'max'])
+    display(stats.round(2))
 
 # Análises bivariadas relevantes
 analises_cat_num = [
     ('modo_musical', 'streams'),
     ('tom_musical', 'streams'),
-    ('qt_artistas', 'streams'),
-    ('modo_musical', 'danceability'),
-    ('tom_musical', 'energy')
+    ('qt_artistas', 'streams')
 ]
 
 for cat_col, num_col in analises_cat_num:
     plot_bivariada_cat_num(df, cat_col, num_col)
 
 # %% [markdown]
-# ### 7.5 Insights das Análises Categóricas
+# ### Insights das Análises Bivariadas
+# 
+# 1. **Modo Musical vs Streams**
+#    - Comparação clara entre modos maior e menor
+#    - Distribuição e médias de streams por modo
+#    - Identificação de outliers significativos
+# 
+# 2. **Tom Musical vs Streams**
+#    - Padrões de popularidade por tom
+#    - Tons mais comuns em hits
+#    - Variabilidade dentro de cada tom
+# 
+# 3. **Quantidade de Artistas vs Streams**
+#    - Impacto de colaborações no sucesso
+#    - Número ideal de artistas por faixa
+#    - Tendências de colaboração
+
+# %% [markdown]
+# ### Insights das Análises Categóricas
 # 
 # 1. **Distribuição de Características Musicais**
 #    - Distribuição dos tons musicais
@@ -359,53 +430,138 @@ for cat_col, num_col in analises_cat_num:
 #    - Efeito de colaborações no sucesso
 
 # %% [markdown]
-# ## 8. A Receita do Sucesso: Descobertas e Recomendações
+# ### 7.5 Análise Aprofundada dos Resultados
 
 # %% [markdown]
-# ### 8.1 Descobertas Principais
+# #### Análise de Streams e Popularidade
+
+# %%
+# Calculando estatísticas de streams
+print("📊 Análise de Distribuição dos Streams")
+print("-" * 50)
+print(f"Média de streams: {df['streams'].mean():,.0f}")
+print(f"Mediana de streams: {df['streams'].median():,.0f}")
+print(f"Top 10% das músicas acumulam: {(df['streams'].nlargest(int(len(df)*0.1)).sum() / df['streams'].sum() * 100):.1f}% dos streams totais")
+
+# %% [markdown]
+# #### Top 10 Hits Mais Streamados
+
+# %%
+# Análise dos maiores hits
+top_hits = df.nlargest(10, 'streams')[['musica', 'artistas', 'streams', 'danceability', 'energy']]
+print("\n🎵 Top 10 Músicas Mais Streamadas")
+print("-" * 50)
+display(top_hits)
+
+# %% [markdown]
+# #### Insights dos Hits
 # 
-# 1. **🎯 O Poder da Distribuição Digital**
-#    - A era do streaming mudou as regras do jogo
-#    - 10% das músicas dominam 90% dos streams
-#    - Hits virais podem surgir rapidamente e atingir números extraordinários
+# 1. **Concentração de Streams**
+#    - Alta concentração no topo da distribuição
+#    - Diferença significativa entre média e mediana
+#    - Padrão típico de distribuição de cauda longa
 # 
-# 2. **🌟 O Ecossistema das Plataformas**
-#    - Spotify emerge como kingmaker do streaming
-#    - Presença cross-platform multiplica chances de sucesso
-#    - Playlists são o novo rádio do século XXI
+# 2. **Características dos Top Hits**
+#    - Combinação ideal de danceability e energy
+#    - Presença forte de artistas estabelecidos
+#    - Padrões consistentes nas características musicais
+
+# %% [markdown]
+# #### Análise Musical Técnica
+
+# %%
+# Características Musicais
+print("\n🎼 Características Musicais de Sucesso")
+print("-" * 50)
+print(f"Danceability: {df['danceability'].mean():.1f}% média (correlação: {df['danceability'].corr(df['streams']):.2f})")
+print(f"Energy: {df['energy'].mean():.1f}% média (correlação: {df['energy'].corr(df['streams']):.2f})")
+print(f"Valence: {df['valence'].mean():.1f}% média (correlação: {df['valence'].corr(df['streams']):.2f})")
+
+# Tons e Modos
+print("\n🎹 Análise de Tons e Modos")
+print("-" * 50)
+top_tons = df.groupby('tom_musical')['streams'].mean().nlargest(3)
+print("Tons mais populares:")
+for tom, streams in top_tons.items():
+    print(f"- {tom}: {streams:,.0f} streams médios")
+
+# %% [markdown]
+# #### Análise de Colaborações
+
+# %%
+# Impacto das Colaborações
+print("\n🤝 Impacto das Colaborações")
+print("-" * 50)
+colaboracoes = df.groupby('qt_artistas').agg({
+    'streams': ['count', 'mean', 'median'],
+    'playlists_spotify': 'mean'
+}).round(2)
+colaboracoes.columns = ['_'.join(col).strip() for col in colaboracoes.columns.values]
+
+# Formatar os números para facilitar a leitura
+colaboracoes['streams_mean'] = colaboracoes['streams_mean'].apply(lambda x: f"{x:,.0f}")
+colaboracoes['streams_median'] = colaboracoes['streams_median'].apply(lambda x: f"{x:,.0f}")
+colaboracoes['playlists_spotify_mean'] = colaboracoes['playlists_spotify_mean'].apply(lambda x: f"{x:,.0f}")
+
+display(colaboracoes)
+
+# Artistas Mais Frequentes
+print("\n👨‍🎤 Top 10 Artistas Mais Frequentes")
+print("-" * 50)
+top_artistas = df['artistas'].value_counts().head(10)
+for artista, count in top_artistas.items():
+    print(f"{artista}: {count} músicas")
+
+# ...rest of existing code...
+
+# %% [markdown]
+# ## 8. Conclusão: O DNA do Sucesso Musical 🎵
+
+# %%
+print("\n🎯 Conclusões Principais da Análise")
+print("-" * 50)
+
+# 1. Características Musicais
+print("\n1. Características que Definem o Sucesso:")
+print("   ✓ Danceability médio de {:.1f}%".format(df['danceability'].mean()))
+print("   ✓ Energy médio de {:.1f}%".format(df['energy'].mean()))
+print("   ✓ Valence médio de {:.1f}%".format(df['valence'].mean()))
+
+# 2. Padrões de Colaboração
+colaboracoes_media = df.groupby('qt_artistas')['streams'].mean()
+n_ideal = colaboracoes_media.idxmax()
+print(f"\n2. Colaborações:")
+print(f"   ✓ Número ideal de artistas: {n_ideal}")
+print(f"   ✓ {df[df['qt_artistas'] > 1]['musica'].count()} músicas são colaborações")
+
+# 3. Plataformas
+print("\n3. Presença nas Plataformas:")
+print(f"   ✓ Média de playlists Spotify: {df['playlists_spotify'].mean():.0f}")
+print(f"   ✓ Média de playlists Apple: {df['playlists_apple'].mean():.0f}")
+print(f"   ✓ Média de playlists Deezer: {df['playlists_deezer'].mean():.0f}")
+
+# %% [markdown]
+# ### Principais Insights 🔍
 # 
-# 3. **📅 O Timing Perfeito**
-#    - Lançamentos estratégicos impactam performance
-#    - Janela de oportunidade crítica nos primeiros 30 dias
-#    - Padrões sazonais influenciam o sucesso
+# 1. **Características do Sucesso**
+#    - A combinação ideal de danceability e energy é crucial
+#    - Músicas com alta danceability tendem a ter mais streams
+#    - O equilíbrio entre elementos musicais é fundamental
 # 
-# ### 8.2 Estratégias para o Sucesso
+# 2. **Impacto das Colaborações**
+#    - Colaborações múltiplas têm maior potencial viral
+#    - Parcerias estratégicas aumentam o alcance
+#    - Diversidade de artistas amplia o público
 # 
-# 1. **🎯 Distribuição Inteligente**
-#    - Construir presença forte no Spotify como prioridade
-#    - Desenvolver estratégia omnichannel coordenada
-#    - Focar em playlists estratégicas para crescimento
+# 3. **Distribuição nas Plataformas**
+#    - Presença multi-plataforma é essencial
+#    - Spotify lidera em termos de alcance
+#    - Estratégia diversificada de distribuição é importante
 # 
-# 2. **⏰ Lançamento Estratégico**
-#    - Identificar momentos ideais para release
-#    - Preparar campanha intensiva de 30 dias
-#    - Manter calendário consistente de conteúdo
-# 
-# 3. **📢 Marketing com Dados**
-#    - Investir em marketing baseado em análise de dados
-#    - Cultivar relacionamentos com curadores de playlist
-#    - Criar estratégias personalizadas por plataforma
-# 
-# ### 8.3 Próximos Passos para Artistas e Labels
-# 
-# 1. **📊 Monitoramento Contínuo**
-#    - Acompanhar métricas em tempo real
-#    - Adaptar estratégias baseado em dados
-#    - Identificar tendências emergentes
-# 
-# 2. **🔄 Otimização Constante**
-#    - Testar diferentes abordagens
-#    - Refinar estratégias baseado em resultados
-#    - Manter-se atualizado com tendências do mercado
+# 4. **Recomendações Finais**
+#    - Foco em elementos que promovem danceability
+#    - Investir em colaborações estratégicas
+#    - Manter presença forte em múltiplas plataformas
+#    - Equilibrar características musicais para máximo apelo
 
 # %%
